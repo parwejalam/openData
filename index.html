@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NobleWave Open Data - Qaida Videos</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="dataStructure.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>NobleWave Open Data</h1>
+            <p class="subtitle">Educational Video Resources - Qaida Collection</p>
+        </header>
+
+        <div class="breadcrumb" id="breadcrumb">
+            <!-- Breadcrumb navigation will be shown here -->
+        </div>
+
+        <div class="projects-container" id="projectsContainer">
+            <!-- Project cards will be generated here -->
+        </div>
+
+        <div class="subfolders-container" id="subfoldersContainer" style="display: none;">
+            <!-- Subfolder cards will be generated here -->
+        </div>
+
+        <div class="json-files-container" id="jsonFilesContainer" style="display: none;">
+            <!-- JSON file cards will be generated here -->
+        </div>
+
+        <div class="json-display" id="jsonDisplay">
+            <div class="json-header">
+                <h2 class="json-title" id="jsonTitle">JSON Data</h2>
+                <button class="close-btn" onclick="closeJsonDisplay()">Close</button>
+            </div>
+            <div id="jsonContent">
+                <!-- JSON content will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Define the project structure
+
+        let currentView = 'projects';
+        let currentProject = null;
+        let currentSubfolder = null;
+
+        // Initialize the application
+        function initializeApp() {
+            showProjects();
+            updateBreadcrumb();
+        }
+
+        // Show projects view
+        function showProjects() {
+            currentView = 'projects';
+            currentProject = null;
+            currentSubfolder = null;
+
+            hideAllContainers();
+            document.getElementById('projectsContainer').style.display = 'grid';
+
+            const projectsContainer = document.getElementById('projectsContainer');
+            projectsContainer.innerHTML = '';
+
+            Object.keys(projectStructure).forEach(projectKey => {
+                const project = projectStructure[projectKey];
+                const projectElement = document.createElement('div');
+                projectElement.className = 'card project-card';
+                projectElement.onclick = () => showSubfolders(projectKey);
+
+                projectElement.innerHTML = `
+                    <div class="card-icon">${project.icon}</div>
+                    <h3>${project.name}</h3>
+                    <p class="card-description">${project.description}</p>
+                    <div class="card-meta">${Object.keys(project.subfolders).length} category(ies)</div>
+                `;
+
+                projectsContainer.appendChild(projectElement);
+            });
+
+            updateBreadcrumb();
+        }
+
+        // Show subfolders for a project
+        function showSubfolders(projectKey) {
+            currentView = 'subfolders';
+            currentProject = projectKey;
+            currentSubfolder = null;
+
+            hideAllContainers();
+            document.getElementById('subfoldersContainer').style.display = 'grid';
+
+            const subfoldersContainer = document.getElementById('subfoldersContainer');
+            subfoldersContainer.innerHTML = '';
+
+            const project = projectStructure[projectKey];
+
+            Object.keys(project.subfolders).forEach(subfolderKey => {
+                const subfolder = project.subfolders[subfolderKey];
+                const subfolderElement = document.createElement('div');
+                subfolderElement.className = 'card subfolder-card';
+                subfolderElement.onclick = () => showJsonFiles(projectKey, subfolderKey);
+
+                subfolderElement.innerHTML = `
+                    <div class="card-icon">${subfolder.icon}</div>
+                    <h3>${subfolder.name}</h3>
+                    <p class="card-description">${subfolder.description}</p>
+                    <div class="card-meta">${subfolder.jsonFiles.length} file(s)</div>
+                `;
+
+                subfoldersContainer.appendChild(subfolderElement);
+            });
+
+            updateBreadcrumb();
+        }
+
+        // Show JSON files for a subfolder
+        function showJsonFiles(projectKey, subfolderKey) {
+            currentView = 'jsonFiles';
+            currentProject = projectKey;
+            currentSubfolder = subfolderKey;
+
+            hideAllContainers();
+            document.getElementById('jsonFilesContainer').style.display = 'grid';
+
+            const jsonFilesContainer = document.getElementById('jsonFilesContainer');
+            jsonFilesContainer.innerHTML = '';
+
+            const subfolder = projectStructure[projectKey].subfolders[subfolderKey];
+
+            subfolder.jsonFiles.forEach(file => {
+                const fileElement = document.createElement('div');
+                fileElement.className = 'card json-file-card';
+                fileElement.onclick = () => loadJsonData(file);
+
+                fileElement.innerHTML = `
+                    <div class="card-icon">${file.language}</div>
+                    <h3>${file.language}</h3>
+                    <p class="card-description">${file.description}</p>
+                    <div class="card-meta">${file.path}</div>
+                `;
+
+                jsonFilesContainer.appendChild(fileElement);
+            });
+
+            updateBreadcrumb();
+        }
+
+        // Hide all containers
+        function hideAllContainers() {
+            document.getElementById('projectsContainer').style.display = 'none';
+            document.getElementById('subfoldersContainer').style.display = 'none';
+            document.getElementById('jsonFilesContainer').style.display = 'none';
+        }
+
+        // Update breadcrumb navigation
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            let breadcrumbHTML = '<span class="breadcrumb-item" onclick="showProjects()">🏠 Projects</span>';
+
+            if (currentProject) {
+                const project = projectStructure[currentProject];
+                breadcrumbHTML += ` <span class="breadcrumb-separator">›</span> <span class="breadcrumb-item" onclick="showSubfolders('${currentProject}')">${project.icon} ${project.name}</span>`;
+            }
+
+            if (currentSubfolder) {
+                const subfolder = projectStructure[currentProject].subfolders[currentSubfolder];
+                breadcrumbHTML += ` <span class="breadcrumb-separator">›</span> <span class="breadcrumb-item active">${subfolder.icon} ${subfolder.name}</span>`;
+            }
+
+            breadcrumb.innerHTML = breadcrumbHTML;
+        }
+
+        // Load and display JSON data
+        async function loadJsonData(file) {
+            const jsonDisplay = document.getElementById('jsonDisplay');
+            const jsonTitle = document.getElementById('jsonTitle');
+            const jsonContent = document.getElementById('jsonContent');
+
+            // Show loading state
+            jsonContent.innerHTML = '<div class="loading">Loading data...</div>';
+            jsonTitle.textContent = `${file.language} Data`;
+            jsonDisplay.classList.add('active');
+
+            try {
+                const response = await fetch(file.path);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayJsonData(data, file);
+
+            } catch (error) {
+                console.error('Error loading JSON:', error);
+                jsonContent.innerHTML = `
+                    <div class="error">
+                        <strong>Error loading data:</strong> ${error.message}
+                        <br><br>
+                        <strong>File:</strong> ${file.path}
+                        <br>
+                        <strong>Suggestion:</strong> Make sure the file exists and is accessible.
+                    </div>
+                `;
+            }
+        }
+
+        // Display JSON data in a formatted way
+        function displayJsonData(data, file) {
+            const jsonContent = document.getElementById('jsonContent');
+
+            if (!Array.isArray(data) || data.length === 0) {
+                jsonContent.innerHTML = '<div class="error">No data found or invalid format.</div>';
+                return;
+            }
+
+            let html = `
+                <div class="data-summary">
+                    <strong>Total Items:</strong> ${data.length} | 
+                    <strong>Language:</strong> ${file.language} | 
+                    <strong>Source:</strong> ${file.path}
+                </div>
+            `;
+
+            data.forEach((item, index) => {
+                const fullVideoUrl = item.src + item.videoId;
+
+                html += `
+                    <div class="data-item">
+                        <div class="data-title">${index + 1}. ${item.title}</div>
+                        <div class="data-details">
+                            <div class="data-detail">
+                                <strong>Video ID:</strong> ${item.videoId}
+                            </div>
+                            <div class="data-detail">
+                                <strong>Embed URL:</strong> ${fullVideoUrl}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            jsonContent.innerHTML = html;
+        }
+
+        // Close JSON display
+        function closeJsonDisplay() {
+            const jsonDisplay = document.getElementById('jsonDisplay');
+            jsonDisplay.classList.remove('active');
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function () {
+            initializeApp();
+        });
+
+        // Close JSON display when clicking outside
+        document.addEventListener('click', function (event) {
+            const jsonDisplay = document.getElementById('jsonDisplay');
+            const cards = document.querySelectorAll('.card');
+
+            if (jsonDisplay.classList.contains('active') &&
+                !jsonDisplay.contains(event.target) &&
+                !Array.from(cards).some(card => card.contains(event.target))) {
+                closeJsonDisplay();
+            }
+        });
+    </script>
+</body>
+
+</html>
